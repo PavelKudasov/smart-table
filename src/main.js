@@ -8,6 +8,7 @@ import {processFormData} from "./lib/utils.js";
 
 import {initTable} from "./components/table.js";
 // @todo: подключение
+<<<<<<< HEAD
 const rowsPerPage = parseInt(state.rowsPerPage);
 const page = parseInt(state.page ?? 1);
 
@@ -16,6 +17,9 @@ return {
   rowsPerPage,
   page
 };
+=======
+
+>>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de
 
 // Исходные данные используемые в render()
 const {data, ...indexes} = initData(sourceData);
@@ -40,6 +44,7 @@ function render(action) {
     let state = collectState(); // состояние полей из таблицы
     let result = [...data]; // копируем для последующего изменения
     // @todo: использование
+<<<<<<< HEAD
 const sampleTable = initTable({
   container: document.querySelector('#table-container'), // или ваш селектор
   rowTemplate: 'row',
@@ -66,6 +71,9 @@ const applyPagination = initPagination(
     return el;
   }
 );
+=======
+
+>>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de
 
     sampleTable.render(result)
 }
@@ -78,12 +86,16 @@ const sampleTable = initTable({
 }, render);
 
 // @todo: инициализация
+<<<<<<< HEAD
 let result = sourceData;
 result = applySearching(result, state);
 result = applyFiltering(result, state, action);
 result = applySorting(result, state, action);
 result = applyPagination(result, state, action);
 sampleTable.render(result); // или ваш метод вывода строк
+=======
+
+>>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de
 
 const appRoot = document.querySelector('#app');
 appRoot.appendChild(sampleTable.container);
