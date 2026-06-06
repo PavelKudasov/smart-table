@@ -1,56 +1,51 @@
-import {getPages} from "../lib/utils.js";
+export function initPagination(elements) {
+    let pageCount = 1;
 
-export const initPagination = ({pages, fromRow, toRow, totalRows}, createPage) => {
-    // @todo: #2.3 — подготовить шаблон кнопки для страницы и очистить контейнер
-<<<<<<< HEAD
-    const pageTemplate = pages.firstElementChild.cloneNode(true);
-pages.firstElementChild.remove();
-    return (data, state, action) => {
-        // @todo: #2.1 — посчитать количество страниц, объявить переменные и константы
-        const rowsPerPage = state.rowsPerPage;
-const pageCount = Math.ceil(data.length / rowsPerPage);
-let page = state.page;
+    // 🔥 Формируем параметры пагинации для запроса (вызывается ДО fetch)
+    const applyPagination = (query, state, action) => {
+        const limit = state.rowsPerPage || 6;
+        let page = state.page || 1;
+        
+        // Обработка действий (из твоей прошлой работы)
+        if (action?.type === 'next' && page < pageCount) page++;
+        if (action?.type === 'prev' && page > 1) page--;
+        if (action?.type === 'page' && action.payload) page = action.payload;
+        
+        return Object.assign({}, query, { limit, page });
+    };
 
-if (action) {
-  switch(action.name) {
-    case 'prev': page = Math.max(1, page - 1); break;
-    case 'next': page = Math.min(pageCount, page + 1); break;
-    case 'first': page = 1; break;
-    case 'last': page = pageCount; break;
-  }
+    // 🔥 Обновляем интерфейс пагинации (вызывается ПОСЛЕ fetch)
+    const updatePagination = (total, { page, limit }) => {
+        pageCount = Math.ceil(total / limit);
+        
+        // Обновляем текст "Показано X из Y"
+        if (elements.info) {
+            const start = (page - 1) * limit + 1;
+            const end = Math.min(page * limit, total);
+            elements.info.textContent = `Показано ${start}–${end} из ${total}`;
+        }
+        
+        // Активируем/деактивируем кнопки
+        if (elements.prev) elements.prev.disabled = page === 1;
+        if (elements.next) elements.next.disabled = page === pageCount;
+        
+        // 🔥 Перерисовка кнопок страниц (упрощённо)
+        if (elements.pages) {
+            elements.pages.innerHTML = '';
+            const maxVisible = 5;
+            let start = Math.max(1, page - Math.floor(maxVisible / 2));
+            let end = Math.min(pageCount, start + maxVisible - 1);
+            
+            for (let i = start; i <= end; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.dataset.page = i;
+                if (i === page) btn.classList.add('active');
+                btn.addEventListener('click', () => render({ type: 'page', payload: i }));
+                elements.pages.appendChild(btn);
+            }
+        }
+    };
+
+    return { applyPagination, updatePagination };
 }
-        // @todo: #2.6 — обработать действия
-
-        // @todo: #2.4 — получить список видимых страниц и вывести их
-    const visiblePages = getPages(page, pageCount, 5);
-pages.replaceChildren(...visiblePages.map(pageNumber => {
-  const el = pageTemplate.cloneNode(true);
-  return createPage(el, pageNumber, pageNumber === page);
-}));
-        // @todo: #2.5 — обновить статус пагинации
-    fromRow.textContent = (page - 1) * rowsPerPage + 1;
-toRow.textContent = Math.min(page * rowsPerPage, data.length);
-totalRows.textContent = data.length;
-        // @todo: #2.2 — посчитать сколько строк нужно пропустить и получить срез данных
-        const skip = (page - 1) * rowsPerPage;
-const paginatedData = data.slice(skip, skip + rowsPerPage);
-        return data.slice(0, 10);
-    }
-}
-return paginatedData; // замените старый return
-=======
-
-    return (data, state, action) => {
-        // @todo: #2.1 — посчитать количество страниц, объявить переменные и константы
-
-        // @todo: #2.6 — обработать действия
-
-        // @todo: #2.4 — получить список видимых страниц и вывести их
-
-        // @todo: #2.5 — обновить статус пагинации
-
-        // @todo: #2.2 — посчитать сколько строк нужно пропустить и получить срез данных
-        return data.slice(0, 10);
-    }
-}
->>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de

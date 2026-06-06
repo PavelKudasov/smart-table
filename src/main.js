@@ -1,103 +1,54 @@
-import './fonts/ys-display/fonts.css'
-import './style.css'
+import { initData } from './data.js';
+import { initPagination } from './components/pagination.js';
+import { initFiltering } from './components/filtering.js';
+import { initSearching } from './components/searching.js';
+import { initSorting } from './components/sorting.js';
+import { createTable } from './components/table.js';
 
-import {data as sourceData} from "./data/dataset_1.js";
+// ... (твой код создания элементов) ...
 
-import {initData} from "./data.js";
-import {processFormData} from "./lib/utils.js";
+// 🔥 Инициализация API
+const api = initData(sourceData);
 
-import {initTable} from "./components/table.js";
-// @todo: подключение
-<<<<<<< HEAD
-const rowsPerPage = parseInt(state.rowsPerPage);
-const page = parseInt(state.page ?? 1);
-
-return {
-  ...state,
-  rowsPerPage,
-  page
-};
-=======
-
->>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de
-
-// Исходные данные используемые в render()
-const {data, ...indexes} = initData(sourceData);
-
-/**
- * Сбор и обработка полей из таблицы
- * @returns {Object}
- */
-function collectState() {
-    const state = processFormData(new FormData(sampleTable.container));
-
-    return {
-        ...state
-    };
-}
-
-/**
- * Перерисовка состояния таблицы при любых изменениях
- * @param {HTMLButtonElement?} action
- */
-function render(action) {
-    let state = collectState(); // состояние полей из таблицы
-    let result = [...data]; // копируем для последующего изменения
-    // @todo: использование
-<<<<<<< HEAD
-const sampleTable = initTable({
-  container: document.querySelector('#table-container'), // или ваш селектор
-  rowTemplate: 'row',
-  before: ['search', 'header', 'filter'], // порядок важен: поиск → сортировка → фильтр
-  after: ['pagination']
-});
-
+// 🔥 Инициализация компонентов (вернут по 2 функции)
+const { applyPagination, updatePagination } = initPagination(paginationElements);
+const { applyFiltering, updateIndexes: updateFilterIndexes } = initFiltering(filterElements);
 const applySearching = initSearching('search');
-const applyFiltering = initFiltering(sampleTable.filter.elements, {
-  searchBySeller: indexes.sellers
-});
-const applySorting = initSorting([
-  sampleTable.header.elements.sortByDate,
-  sampleTable.header.elements.sortByTotal
-]);
-const applyPagination = initPagination(
-  sampleTable.pagination.elements,
-  (el, page, isCurrent) => {
-    const input = el.querySelector('input');
-    const label = el.querySelector('span');
-    input.value = page;
-    input.checked = isCurrent;
-    label.textContent = page;
-    return el;
-  }
-);
-=======
+const applySorting = initSorting(columns);
 
->>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de
+const sampleTable = createTable(tableElement);
 
-    sampleTable.render(result)
+// 🔥 Асинхронная функция инициализации
+async function init() {
+    const indexes = await api.getIndexes();
+    
+    // Заполняем select фильтра продавцами
+    updateFilterIndexes(filterElements, { searchBySeller: indexes.sellers });
 }
 
-const sampleTable = initTable({
-    tableTemplate: 'table',
-    rowTemplate: 'row',
-    before: [],
-    after: []
-}, render);
+// 🔥 Асинхронный render
+async function render(action) {
+    let state = collectState();
+    let query = {}; // 🔥 параметры для запроса, а не данные
+    
+    // 🔥 Применяем компоненты ДО запроса (формируем query)
+    query = applyPagination(query, state, action);
+    query = applyFiltering(query, state, action);
+    query = applySearching(query, state, action);
+    query = applySorting(query, state, action);
+    
+    // 🔥 Запрашиваем данные с сервера
+    const { total, items } = await api.getRecords(query);
+    
+    // 🔥 Обновляем интерфейс ПОСЛЕ получения данных
+    updatePagination(total, query);
+    sampleTable.render(items); // 🔥 передаём items, а не весь result
+}
 
-// @todo: инициализация
-<<<<<<< HEAD
-let result = sourceData;
-result = applySearching(result, state);
-result = applyFiltering(result, state, action);
-result = applySorting(result, state, action);
-result = applyPagination(result, state, action);
-sampleTable.render(result); // или ваш метод вывода строк
-=======
+// 🔥 Запуск
+init().then(() => render()).catch(err => console.error('Ошибка инициализации:', err));
 
->>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de
-
-const appRoot = document.querySelector('#app');
-appRoot.appendChild(sampleTable.container);
-
-render();
+// 🔥 Обработчики событий (оставляем как были, но вызываем render)
+paginationElements.prev?.addEventListener('click', () => render({ type: 'prev' }));
+paginationElements.next?.addEventListener('click', () => render({ type: 'next' }));
+// ... остальные обработчики ...

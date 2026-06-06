@@ -1,4 +1,4 @@
-import {cloneTemplate} from "../lib/utils.js";
+import { cloneTemplate } from "../lib/utils.js";
 
 /**
  * Инициализирует таблицу и вызывает коллбэк при любых изменениях и нажатиях на кнопки
@@ -8,38 +8,52 @@ import {cloneTemplate} from "../lib/utils.js";
  * @returns {{container: Node, elements: *, render: render}}
  */
 export function initTable(settings, onAction) {
-    const {tableTemplate, rowTemplate, before, after} = settings;
+    const { tableTemplate, rowTemplate, before, after } = settings;
     const root = cloneTemplate(tableTemplate);
 
-    // @todo: #1.2 —  вывести дополнительные шаблоны до и после таблицы
-<<<<<<< HEAD
-      before.reverse().forEach(subName => {
-  root[subName] = cloneTemplate(subName);
-  root.container.prepend(root[subName].container);
-});
-
-after.forEach(subName => {
-  root[subName] = cloneTemplate(subName);
-  root.container.append(root[subName].container);
-});
-    // @todo: #1.3 —  обработать события и вызвать onAction()
-
-    root.container.addEventListener('change', () => onAction());
-root.container.addEventListener('reset', () => setTimeout(onAction));
-root.container.addEventListener('submit', (e) => {
-  e.preventDefault();
-  onAction(e.submitter);
-});
-=======
-
-    // @todo: #1.3 —  обработать события и вызвать onAction()
-
-    const render = (data) => {
-        // @todo: #1.1 — преобразовать данные в массив строк на основе шаблона rowTemplate
-        const nextRows = [];
-        root.elements.rows.replaceChildren(...nextRows);
+    // 🔥 @todo: #1.2 — вывести дополнительные шаблоны до и после таблицы
+    if (before) {
+        before.reverse().forEach(subName => {
+            root[subName] = cloneTemplate(subName);
+            root.container.prepend(root[subName].container);
+        });
     }
 
-    return {...root, render};
->>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de
+    if (after) {
+        after.forEach(subName => {
+            root[subName] = cloneTemplate(subName);
+            root.container.append(root[subName].container);
+        });
+    }
+
+    // 🔥 @todo: #1.3 — обработать события и вызвать onAction()
+    root.container.addEventListener('change', () => onAction());
+    root.container.addEventListener('reset', () => setTimeout(onAction));
+    root.container.addEventListener('submit', (e) => {
+        e.preventDefault();
+        onAction(e.submitter);
+    });
+
+    // 🔥 Функция рендера таблицы
+    const render = (data) => {
+        // 🔥 @todo: #1.1 — преобразовать данные в массив строк на основе шаблона rowTemplate
+        const nextRows = data.map(item => {
+            const row = cloneTemplate(rowTemplate);
+            
+            // Заполняем ячейки данными из item
+            Object.keys(item).forEach(key => {
+                const cell = row.elements[key];
+                if (cell) {
+                    cell.textContent = item[key];
+                }
+            });
+            
+            return row.container;
+        });
+        
+        // 🔥 Заменяем содержимое tbody на новые строки
+        root.elements.rows.replaceChildren(...nextRows);
+    };
+
+    return { ...root, render };
 }

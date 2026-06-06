@@ -1,41 +1,41 @@
-import {createComparison, defaultRules} from "../lib/compare.js";
+export function initFiltering(elements) {
+    // 🔥 Заполнение select опциями (вызывается после getIndexes)
+    const updateIndexes = (filterElements, indexes) => {
+        Object.keys(indexes).forEach(key => {
+            const select = filterElements[key];
+            if (select && select.tagName === 'SELECT') {
+                // Сохраняем текущее значение
+                const current = select.value;
+                // Очищаем и заполняем заново
+                select.innerHTML = '<option value="">Все</option>';
+                Object.values(indexes[key]).forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    select.appendChild(option);
+                });
+                // Восстанавливаем значение
+                if (current) select.value = current;
+            }
+        });
+    };
 
-// @todo: #4.3 — настроить компаратор
-<<<<<<< HEAD
-Object.keys(indexes).forEach((elementName) => {
-  elements[elementName].append(
-    ...Object.values(indexes[elementName]).map(name => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      return option;
-    })
-  );
-});
-const compare = createComparison(defaultRules);
-=======
+    // 🔥 Формирование параметров фильтра для запроса
+    const applyFiltering = (query, state, action) => {
+        const filter = {};
+        
+        Object.keys(elements).forEach(key => {
+            const el = elements[key];
+            if (el && el.value && ['INPUT', 'SELECT'].includes(el.tagName)) {
+                // Формируем вложенный параметр: filter[seller]=Иван
+                filter[`filter[${el.name}]`] = el.value;
+            }
+        });
+        
+        return Object.keys(filter).length 
+            ? Object.assign({}, query, filter) 
+            : query;
+    };
 
->>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de
-export function initFiltering(elements, indexes) {
-    // @todo: #4.1 — заполнить выпадающие списки опциями
-
-    return (data, state, action) => {
-        // @todo: #4.2 — обработать очистку поля
-<<<<<<< HEAD
-        if (action && action.name === 'clear') {
-  const input = action.parentElement.querySelector('input');
-  if (input) {
-    input.value = '';
-    state[action.dataset.field] = '';
-  }
-}
-        // @todo: #4.5 — отфильтровать данные используя компаратор
-        return data;
-        return data.filter(row => compare(row, state));
-=======
-
-        // @todo: #4.5 — отфильтровать данные используя компаратор
-        return data;
->>>>>>> 44965a67d9b0021247ad4610fd6070d7de6825de
-    }
+    return { updateIndexes, applyFiltering };
 }
