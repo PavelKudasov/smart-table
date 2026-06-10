@@ -1,3 +1,4 @@
+
 import { initData } from './data.js';
 import { initPagination } from './components/pagination.js';
 import { initFiltering } from './components/filtering.js';
