@@ -1,16 +1,15 @@
-import { sortMap } from '../lib/sort.js'; // 🔥 sortCollection больше не нужен
+import { sortMap } from '../lib/sort.js';
 
 export function initSorting(columns) {
     return (query, state, action) => {
-        // 🔥 Определяем поле и направление сортировки (из твоей прошлой логики)
         let field = null;
         let order = 'none';
-        
-        // Пример: ищем активную колонку в state
+
+        // Используем columns[col] для маппинга на имя поля в API
         Object.keys(columns).forEach(col => {
             if (state.sortField === col) {
-                field = sortMap[col]; // маппинг на имя поля в API
-                order = state.sortOrder; // 'asc' или 'desc'
+                field = columns[col];
+                order = state.sortOrder;
             }
         });
         

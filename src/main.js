@@ -68,8 +68,16 @@ function onAction(submitter) {
 
   // Пагинация
   if (name === 'firstPage') return render({ type: 'page', payload: 1 });
-  if (name === 'previousPage') return render({ type: 'prev' });
-  if (name === 'nextPage') return render({ type: 'next' });
+  if (name === 'previousPage') {
+    const state = collectState();
+    const prev = Math.max(1, (state.page || 1) - 1);
+    return render({ type: 'page', payload: prev });
+  }
+  if (name === 'nextPage') {
+    const state = collectState();
+    const next = Math.min(lastPageCount, (state.page || 1) + 1);
+    return render({ type: 'page', payload: next });
+  }
   if (name === 'lastPage') {
     const totalPages = lastPageCount;
     return render({ type: 'page', payload: totalPages });
