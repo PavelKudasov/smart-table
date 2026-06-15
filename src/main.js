@@ -1,4 +1,3 @@
-
 import { initData } from './data.js';
 import { initPagination } from './components/pagination.js';
 import { initFiltering } from './components/filtering.js';
@@ -56,84 +55,18 @@ function collectState() {
   return state;
 }
 
-// Обработчик действий пользователя
-function onAction(submitter) {
-  if (!submitter) {
-    render();
-    return;
-  }
-
-  const name = submitter.getAttribute('data-name');
-  const field = submitter.dataset.field;
-
-  // Пагинация
-  if (name === 'firstPage') return render({ type: 'page', payload: 1 });
-  if (name === 'previousPage') {
-    const state = collectState();
-    const prev = Math.max(1, (state.page || 1) - 1);
-    return render({ type: 'page', payload: prev });
-  }
-  if (name === 'nextPage') {
-    const state = collectState();
-    const next = Math.min(lastPageCount, (state.page || 1) + 1);
-    return render({ type: 'page', payload: next });
-  }
-  if (name === 'lastPage') {
-    const totalPages = lastPageCount;
-    return render({ type: 'page', payload: totalPages });
-  }
-  if (submitter.name === 'page') return render({ type: 'page', payload: parseInt(submitter.value, 10) });
-
-  // Сортировка
-  if (name === 'sortByDate' || name === 'sortByTotal') {
-    const current = submitter.dataset.value || 'none';
-    const next = current === 'none' ? 'up' : current === 'up' ? 'down' : 'none';
-    submitter.dataset.value = next;
-    // Сбрасываем другую сортировку
-    const other = name === 'sortByDate' ? 'sortByTotal' : 'sortByDate';
-    const otherBtn = document.querySelector(`[data-name="${other}"]`);
-    if (otherBtn) otherBtn.dataset.value = 'none';
-    return render();
-  }
-
-  // Очистка фильтра
-  if (name === 'clear' && field) {
-    const input = document.querySelector(`[name="${field}"]`);
-    if (input) input.value = '';
-    return render();
-  }
-
-  // Сброс всех фильтров
-  if (name === 'reset') {
-    const form = document.forms.table;
-    if (form) form.reset();
-    document.querySelectorAll('[data-name^="sortBy"]').forEach(btn => btn.dataset.value = 'none');
-    return render();
-  }
-
-  // Rows per page
-  if (name === 'rowsPerPage') {
-    return render();
-  }
-
-  render();
-}
-
-let lastPageCount = 1;
-
 async function bootstrap() {
   const app = document.getElementById('app');
   const api = initData(null);
   const columns = { date: 'date', seller: 'seller', customer: 'customer', total: 'total' };
 
-  // Создаём внешние элементы: search и pagination
+  // Создаём внешние элементы
   const searchTpl = cloneTemplate('search');
   const paginationTpl = cloneTemplate('pagination');
 
-  // Вставляем search до таблицы, pagination — после
   app.appendChild(searchTpl.container);
 
-  // Создаём таблицу с header и filter внутри
+  // Создаём таблицу
   const tableSettings = {
     tableTemplate: 'table',
     rowTemplate: 'row',
@@ -141,53 +74,23 @@ async function bootstrap() {
     after: []
   };
 
-  const sampleTable = initTable(tableSettings, onAction);
-  app.appendChild(sampleTable.container);
-  app.appendChild(paginationTpl.container);
-
-  // Собираем элементы для пагинации и фильтров
-  const paginationElements = {
-    prev: paginationTpl.elements.previousPage,
-    next: paginationTpl.elements.nextPage,
-    pages: paginationTpl.elements.pages,
-    rowsPerPage: paginationTpl.elements.rowsPerPage,
-    fromRow: paginationTpl.elements.fromRow,
-    toRow: paginationTpl.elements.toRow,
-    totalRows: paginationTpl.elements.totalRows,
-  };
-
-  const filterElements = {
-    searchBySeller: sampleTable.filter?.elements?.searchBySeller,
-    searchByCustomer: sampleTable.filter?.elements?.searchByCustomer,
-    searchByDate: sampleTable.filter?.elements?.searchByDate,
-  };
-
-  const { applyPagination, updatePagination } = initPagination(paginationElements);
-  const { applyFiltering, updateIndexes: updateFilterIndexes } = initFiltering(filterElements);
-  const applySearching = initSearching('search');
-  const applySorting = initSorting(columns);
-
-  // Загружаем индексы
-  const indexes = await api.getIndexes();
-  updateFilterIndexes(filterElements, { searchBySeller: indexes.sellers });
-
-  // Обновление UI пагинации
+  // 🔥 Функция обновления UI пагинации
+  let lastPageCount = 1;
   function updatePaginationUI(total, query) {
     const { page = 1, limit = 10 } = query;
     lastPageCount = Math.ceil(total / limit);
     const start = (page - 1) * limit + 1;
     const end = Math.min(page * limit, total);
 
-    if (paginationElements.fromRow) paginationElements.fromRow.textContent = start;
-    if (paginationElements.toRow) paginationElements.toRow.textContent = end;
-    if (paginationElements.totalRows) paginationElements.totalRows.textContent = total;
+    if (paginationTpl.elements.fromRow) paginationTpl.elements.fromRow.textContent = start;
+    if (paginationTpl.elements.toRow) paginationTpl.elements.toRow.textContent = end;
+    if (paginationTpl.elements.totalRows) paginationTpl.elements.totalRows.textContent = total;
 
-    if (paginationElements.prev) paginationElements.prev.disabled = page === 1;
-    if (paginationElements.next) paginationElements.next.disabled = page === lastPageCount;
+    if (paginationTpl.elements.previousPage) paginationTpl.elements.previousPage.disabled = page === 1;
+    if (paginationTpl.elements.nextPage) paginationTpl.elements.nextPage.disabled = page === lastPageCount;
 
-    // Перерисовка кнопок страниц
-    if (paginationElements.pages) {
-      paginationElements.pages.innerHTML = '';
+    if (paginationTpl.elements.pages) {
+      paginationTpl.elements.pages.innerHTML = '';
       const maxVisible = 5;
       let pStart = Math.max(1, page - Math.floor(maxVisible / 2));
       let pEnd = Math.min(lastPageCount, pStart + maxVisible - 1);
@@ -209,11 +112,12 @@ async function bootstrap() {
 
         label.appendChild(input);
         label.appendChild(span);
-        paginationElements.pages.appendChild(label);
+        paginationTpl.elements.pages.appendChild(label);
       }
     }
   }
 
+  // 🔥 ФУНКЦИЯ РЕНДЕРА (теперь внутри bootstrap)
   async function render(action) {
     let state = collectState();
     let query = {};
@@ -229,6 +133,79 @@ async function bootstrap() {
     sampleTable.render(items);
   }
 
+  // 🔥 ОБРАБОТЧИК ДЕЙСТВИЙ (ПЕРЕМЕСТИЛИ ВНУТРЬ bootstrap, чтобы видеть render)
+  function onAction(submitter) {
+    if (!submitter) {
+      return render();
+    }
+
+    const name = submitter.getAttribute('data-name');
+    const field = submitter.dataset.field;
+
+    if (name === 'firstPage') return render({ type: 'page', payload: 1 });
+    if (name === 'previousPage') return render({ type: 'prev' });
+    if (name === 'nextPage') return render({ type: 'next' });
+    if (name === 'lastPage') return render({ type: 'page', payload: lastPageCount });
+    if (submitter.name === 'page') return render({ type: 'page', payload: parseInt(submitter.value, 10) });
+
+    if (name === 'sortByDate' || name === 'sortByTotal') {
+      const current = submitter.dataset.value || 'none';
+      const next = current === 'none' ? 'up' : current === 'up' ? 'down' : 'none';
+      submitter.dataset.value = next;
+      const other = name === 'sortByDate' ? 'sortByTotal' : 'sortByDate';
+      const otherBtn = document.querySelector(`[data-name="${other}"]`);
+      if (otherBtn) otherBtn.dataset.value = 'none';
+      return render();
+    }
+
+    if (name === 'clear' && field) {
+      const input = document.querySelector(`[name="${field}"]`);
+      if (input) input.value = '';
+      return render();
+    }
+
+    if (name === 'reset') {
+      const form = document.forms.table;
+      if (form) form.reset();
+      document.querySelectorAll('[data-name^="sortBy"]').forEach(btn => btn.dataset.value = 'none');
+      return render();
+    }
+
+    render();
+  }
+
+  // Инициализация таблицы
+  const sampleTable = initTable(tableSettings, onAction);
+  app.appendChild(sampleTable.container);
+  app.appendChild(paginationTpl.container);
+
+  // Элементы для компонентов
+  const filterElements = {
+    searchBySeller: sampleTable.filter?.elements?.searchBySeller,
+    searchByCustomer: sampleTable.filter?.elements?.searchByCustomer,
+    searchByDate: sampleTable.filter?.elements?.searchByDate,
+  };
+
+  const paginationElements = {
+    prev: paginationTpl.elements.previousPage,
+    next: paginationTpl.elements.nextPage,
+    pages: paginationTpl.elements.pages,
+    rowsPerPage: paginationTpl.elements.rowsPerPage,
+    fromRow: paginationTpl.elements.fromRow,
+    toRow: paginationTpl.elements.toRow,
+    totalRows: paginationTpl.elements.totalRows,
+  };
+
+  const { applyPagination } = initPagination(paginationElements);
+  const { applyFiltering, updateIndexes: updateFilterIndexes } = initFiltering(filterElements);
+  const applySearching = initSearching('search');
+  const applySorting = initSorting(columns);
+
+  // Загружаем индексы
+  const indexes = await api.getIndexes();
+  updateFilterIndexes(filterElements, { searchBySeller: indexes.sellers });
+
+  // Запускаем первый рендер
   render();
 }
 
