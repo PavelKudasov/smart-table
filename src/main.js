@@ -4,209 +4,69 @@ import { initFiltering } from './components/filtering.js';
 import { initSearching } from './components/searching.js';
 import { initSorting } from './components/sorting.js';
 import { initTable } from './components/table.js';
-import { cloneTemplate } from './lib/utils.js';
 
-// Собираем состояние из DOM-элементов формы
-function collectState() {
-  const form = document.forms.table;
-  if (!form) return {};
+document.addEventListener('DOMContentLoaded', async () => {
+  const api = initData();
 
-  const state = {};
+  const table = initTable();
+  const pagination = initPagination();
+  const filtering = initFiltering();
+  const searching = initSearching('search');
+  const sorting = initSorting();
 
-  // Поиск
-  const searchInput = form.closest('.container')?.querySelector('[data-name="search"]');
-  if (searchInput) state.search = searchInput.value;
+  const indexes = await api.getIndexes();
+  filtering.updateIndexes(indexes);
 
-  // Фильтры
-  const dateInput = form.querySelector('[data-name="searchByDate"]');
-  if (dateInput) state.date = dateInput.value;
+  table.init();
+  pagination.init();
+  filtering.init();
 
-  const customerInput = form.querySelector('[data-name="searchByCustomer"]');
-  if (customerInput) state.customer = customerInput.value;
-
-  const sellerSelect = form.querySelector('[data-name="searchBySeller"]');
-  if (sellerSelect) state.seller = sellerSelect.value;
-
-  const totalFrom = form.querySelector('[data-name="totalFrom"]');
-  const totalTo = form.querySelector('[data-name="totalTo"]');
-  if (totalFrom && totalFrom.value) state.totalFrom = totalFrom.value;
-  if (totalTo && totalTo.value) state.totalTo = totalTo.value;
-
-  // Пагинация
-  const rowsPerPage = form.closest('.container')?.querySelector('[data-name="rowsPerPage"]');
-  if (rowsPerPage) state.rowsPerPage = parseInt(rowsPerPage.value, 10);
-
-  const activePage = form.closest('.container')?.querySelector('[name="page"]:checked');
-  if (activePage) state.page = parseInt(activePage.value, 10);
-
-  // Сортировка
-  const sortByDate = form.querySelector('[data-name="sortByDate"]');
-  if (sortByDate) {
-    state.sortField = 'date';
-    state.sortOrder = sortByDate.dataset.value || 'none';
-  }
-
-  const sortByTotal = form.querySelector('[data-name="sortByTotal"]');
-  if (sortByTotal && state.sortOrder === 'none') {
-    state.sortField = 'total';
-    state.sortOrder = sortByTotal.dataset.value || 'none';
-  }
-
-  return state;
-}
-
-async function bootstrap() {
-  const app = document.getElementById('app');
-  const api = initData(null);
-  const columns = { date: 'date', seller: 'seller', customer: 'customer', total: 'total' };
-
-  // Создаём внешние элементы
-  const searchTpl = cloneTemplate('search');
-  const paginationTpl = cloneTemplate('pagination');
-
-  app.appendChild(searchTpl.container);
-
-  // Создаём таблицу
-  const tableSettings = {
-    tableTemplate: 'table',
-    rowTemplate: 'row',
-    before: ['header', 'filter'],
-    after: []
-  };
-
-  // 🔥 Функция обновления UI пагинации
-  let lastPageCount = 1;
-  function updatePaginationUI(total, query) {
-    const { page = 1, limit = 10 } = query;
-    lastPageCount = Math.ceil(total / limit);
-    const start = (page - 1) * limit + 1;
-    const end = Math.min(page * limit, total);
-
-    if (paginationTpl.elements.fromRow) paginationTpl.elements.fromRow.textContent = start;
-    if (paginationTpl.elements.toRow) paginationTpl.elements.toRow.textContent = end;
-    if (paginationTpl.elements.totalRows) paginationTpl.elements.totalRows.textContent = total;
-
-    if (paginationTpl.elements.previousPage) paginationTpl.elements.previousPage.disabled = page === 1;
-    if (paginationTpl.elements.nextPage) paginationTpl.elements.nextPage.disabled = page === lastPageCount;
-
-    if (paginationTpl.elements.pages) {
-      paginationTpl.elements.pages.innerHTML = '';
-      const maxVisible = 5;
-      let pStart = Math.max(1, page - Math.floor(maxVisible / 2));
-      let pEnd = Math.min(lastPageCount, pStart + maxVisible - 1);
-      if (pEnd - pStart + 1 < maxVisible) pStart = Math.max(1, pEnd - maxVisible + 1);
-
-      for (let i = pStart; i <= pEnd; i++) {
-        const label = document.createElement('label');
-        label.className = 'pagination-button';
-        label.setAttribute('aria-label', `Goto page ${i}`);
-
-        const input = document.createElement('input');
-        input.type = 'radio';
-        input.name = 'page';
-        input.value = i;
-        if (i === page) input.checked = true;
-
-        const span = document.createElement('span');
-        span.textContent = i;
-
-        label.appendChild(input);
-        label.appendChild(span);
-        paginationTpl.elements.pages.appendChild(label);
-      }
-    }
-  }
-
-  // 🔥 ФУНКЦИЯ РЕНДЕРА (теперь внутри bootstrap)
   async function render(action) {
-    let state = collectState();
-    let query = {};
+    const searchInput = document.querySelector('[data-name="search"]');
+    const pageRadio = document.querySelector('[name="page"]:checked');
+    const rowsSelect = document.querySelector('[data-name="rowsPerPage"]');
+    const sortDateBtn = document.querySelector('[data-name="sortByDate"]');
+    const sortTotalBtn = document.querySelector('[data-name="sortByTotal"]');
 
-    query = applyPagination(query, state, action);
-    query = applyFiltering(query, state, action);
-    query = applySearching(query, state, action);
-    query = applySorting(query, state, action);
+    const state = {
+      search: searchInput?.value || '',
+      page: pageRadio ? parseInt(pageRadio.value, 10) : 1,
+      rowsPerPage: rowsSelect ? parseInt(rowsSelect.value, 10) : 6,
+      sortField: null,
+      sortOrder: 'none',
+    };
+
+    if (sortDateBtn?.dataset.value && sortDateBtn.dataset.value !== 'none') {
+      state.sortField = 'date';
+      state.sortOrder = sortDateBtn.dataset.value;
+    } else if (sortTotalBtn?.dataset.value && sortTotalBtn.dataset.value !== 'none') {
+      state.sortField = 'total';
+      state.sortOrder = sortTotalBtn.dataset.value;
+    }
+
+    let query = {};
+    query = pagination.applyPagination(query, state, action);
+    query = filtering.applyFiltering(query, state, action);
+    query = searching(query, state, action);
+    query = sorting(query, state, action);
 
     const { total, items } = await api.getRecords(query);
 
-    updatePaginationUI(total, query);
-    sampleTable.render(items);
+    pagination.updatePagination(total, query);
+    table.render(items);
   }
 
-  // 🔥 ОБРАБОТЧИК ДЕЙСТВИЙ (ПЕРЕМЕСТИЛИ ВНУТРЬ bootstrap, чтобы видеть render)
-  function onAction(submitter) {
-    if (!submitter) {
-      return render();
+  window.onTableAction = (action) => {
+    if (action?.type === 'sort') {
+      const { field, order } = action.payload;
+      const dateBtn = document.querySelector('[data-name="sortByDate"]');
+      const totalBtn = document.querySelector('[data-name="sortByTotal"]');
+
+      if (dateBtn) dateBtn.dataset.value = field === 'date' ? order : 'none';
+      if (totalBtn) totalBtn.dataset.value = field === 'total' ? order : 'none';
     }
-
-    const name = submitter.getAttribute('data-name');
-    const field = submitter.dataset.field;
-
-    if (name === 'firstPage') return render({ type: 'page', payload: 1 });
-    if (name === 'previousPage') return render({ type: 'prev' });
-    if (name === 'nextPage') return render({ type: 'next' });
-    if (name === 'lastPage') return render({ type: 'page', payload: lastPageCount });
-    if (submitter.name === 'page') return render({ type: 'page', payload: parseInt(submitter.value, 10) });
-
-    if (name === 'sortByDate' || name === 'sortByTotal') {
-      const current = submitter.dataset.value || 'none';
-      const next = current === 'none' ? 'up' : current === 'up' ? 'down' : 'none';
-      submitter.dataset.value = next;
-      const other = name === 'sortByDate' ? 'sortByTotal' : 'sortByDate';
-      const otherBtn = document.querySelector(`[data-name="${other}"]`);
-      if (otherBtn) otherBtn.dataset.value = 'none';
-      return render();
-    }
-
-    if (name === 'clear' && field) {
-      const input = document.querySelector(`[name="${field}"]`);
-      if (input) input.value = '';
-      return render();
-    }
-
-    if (name === 'reset') {
-      const form = document.forms.table;
-      if (form) form.reset();
-      document.querySelectorAll('[data-name^="sortBy"]').forEach(btn => btn.dataset.value = 'none');
-      return render();
-    }
-
-    render();
-  }
-
-  // Инициализация таблицы
-  const sampleTable = initTable(tableSettings, onAction);
-  app.appendChild(sampleTable.container);
-  app.appendChild(paginationTpl.container);
-
-  // Элементы для компонентов
-  const filterElements = {
-    searchBySeller: sampleTable.filter?.elements?.searchBySeller,
-    searchByCustomer: sampleTable.filter?.elements?.searchByCustomer,
-    searchByDate: sampleTable.filter?.elements?.searchByDate,
+    render(action);
   };
 
-  const paginationElements = {
-    prev: paginationTpl.elements.previousPage,
-    next: paginationTpl.elements.nextPage,
-    pages: paginationTpl.elements.pages,
-    rowsPerPage: paginationTpl.elements.rowsPerPage,
-    fromRow: paginationTpl.elements.fromRow,
-    toRow: paginationTpl.elements.toRow,
-    totalRows: paginationTpl.elements.totalRows,
-  };
-
-  const { applyPagination } = initPagination(paginationElements);
-  const { applyFiltering, updateIndexes: updateFilterIndexes } = initFiltering(filterElements);
-  const applySearching = initSearching('search');
-  const applySorting = initSorting(columns);
-
-  // Загружаем индексы
-  const indexes = await api.getIndexes();
-  updateFilterIndexes(filterElements, { searchBySeller: indexes.sellers });
-
-  // Запускаем первый рендер
   render();
-}
-
-bootstrap().catch(err => console.error('Ошибка инициализации:', err));
+});

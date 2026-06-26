@@ -1,56 +1,77 @@
 const BASE_URL = 'https://webinars.webdev.education-services.ru/sp7-api';
 
-// Переменные для кеширования
-let sellers = {};
-let customers = {};
-let lastResult = null;
-let lastQuery = null;
+let sellersCache = {};
+let customersCache = {};
+let cachedResult = null;
+let cachedQuery = null;
 
-// Функция для преобразования данных сервера в формат таблицы
-const mapRecords = (data) => data.map(item => ({
-    id: item.receipt_id,
-    date: item.date,
-    seller: sellers[item.seller_id],
-    customer: customers[item.customer_id],
-    total: item.total_amount
+const mapRecords = (records) => records.map((item) => ({
+  id: item.receipt_id,
+  date: item.date,
+  seller: sellersCache[item.seller_id] || 'Неизвестный',
+  customer: customersCache[item.customer_id] || 'Неизвестный',
+  total: item.total_amount,
 }));
 
-export function initData(sourceData) {
-    // sourceData больше не используется — все данные с сервера
-    
-    const getIndexes = async () => {
-        if (!Object.keys(sellers).length || !Object.keys(customers).length) {
-            [sellers, customers] = await Promise.all([
-                fetch(`${BASE_URL}/sellers`).then(res => res.json()),
-                fetch(`${BASE_URL}/customers`).then(res => res.json()),
-            ]);
-        }
-        return { sellers, customers };
+export function initData() {
+  const getIndexes = async () => {
+    if (!Object.keys(sellersCache).length || !Object.keys(customersCache).length) {
+      const [sellersResponse, customersResponse] = await Promise.all([
+        fetch(`${BASE_URL}/sellers`),
+        fetch(`${BASE_URL}/customers`),
+      ]);
+
+      if (!sellersResponse.ok || !customersResponse.ok) {
+        throw new Error('Failed to load indexes from server');
+      }
+
+      let sellersList = await sellersResponse.json();
+      let customersList = await customersResponse.json();
+
+      // 🔥 Защита: если сервер вернул объект, превращаем его в массив значений
+      if (!Array.isArray(sellersList)) {
+        sellersList = typeof sellersList === 'object' ? Object.values(sellersList) : [];
+      }
+      if (!Array.isArray(customersList)) {
+        customersList = typeof customersList === 'object' ? Object.values(customersList) : [];
+      }
+
+      sellersCache = sellersList.reduce((acc, item) => {
+        acc[item.id] = item.name || item;
+        return acc;
+      }, {});
+
+      customersCache = customersList.reduce((acc, item) => {
+        acc[item.id] = item.name || item;
+        return acc;
+      }, {});
+    }
+
+    return { sellers: sellersCache, customers: customersCache };
+  };
+
+  const getRecords = async (query = {}, forceUpdate = false) => {
+    const queryString = new URLSearchParams(query).toString();
+
+    if (cachedQuery === queryString && !forceUpdate && cachedResult) {
+      return cachedResult;
+    }
+
+    const response = await fetch(`${BASE_URL}/records?${queryString}`);
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const serverData = await response.json();
+
+    cachedQuery = queryString;
+    cachedResult = {
+      total: serverData.total,
+      items: mapRecords(serverData.items),
     };
 
-    const getRecords = async (query = {}, isUpdated = false) => {
-        const qs = new URLSearchParams(query);
-        const nextQuery = qs.toString();
-        
-        // Кеш: если запрос не изменился — возвращаем сохранённый результат
-        if (lastQuery === nextQuery && !isUpdated && lastResult) {
-            return lastResult;
-        }
-        
-        const response = await fetch(`${BASE_URL}/records?${nextQuery}`);
-        if (!response.ok) {
-            throw new Error(`Ошибка загрузки: ${response.status}`);
-        }
-        const records = await response.json();
-        
-        lastQuery = nextQuery;
-        lastResult = {
-            total: records.total,
-            items: mapRecords(records.items)
-        };
-        
-        return lastResult;
-    };
+    return cachedResult;
+  };
 
-    return { getIndexes, getRecords };
+  return { getIndexes, getRecords };
 }

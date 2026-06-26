@@ -1,41 +1,38 @@
-export function initFiltering(elements) {
-    // 🔥 Заполнение select опциями (вызывается после getIndexes)
-    const updateIndexes = (filterElements, indexes) => {
-        Object.keys(indexes).forEach(key => {
-            const select = filterElements[key];
-            if (select && select.tagName === 'SELECT') {
-                // Сохраняем текущее значение
-                const current = select.value;
-                // Очищаем и заполняем заново
-                select.innerHTML = '<option value="">Все</option>';
-                Object.values(indexes[key]).forEach(name => {
-                    const option = document.createElement('option');
-                    option.value = name;
-                    option.textContent = name;
-                    select.appendChild(option);
-                });
-                // Восстанавливаем значение
-                if (current) select.value = current;
-            }
-        });
-    };
+export function initFiltering() {
+  let filterElements = {};
 
-    // 🔥 Формирование параметров фильтра для запроса
-    const applyFiltering = (query, state, action) => {
-        const filter = {};
-        
-        Object.keys(elements).forEach(key => {
-            const el = elements[key];
-            if (el && el.value && ['INPUT', 'SELECT'].includes(el.tagName)) {
-                // Формируем вложенный параметр: filter[seller]=Иван
-                filter[`filter[${el.name}]`] = el.value;
-            }
-        });
-        
-        return Object.keys(filter).length 
-            ? Object.assign({}, query, filter) 
-            : query;
-    };
+  return {
+    init() {
+      filterElements = {
+        seller: document.querySelector('[data-name="searchBySeller"]'),
+        customer: document.querySelector('[data-name="searchByCustomer"]'),
+        date: document.querySelector('[data-name="searchByDate"]'),
+        totalFrom: document.querySelector('[data-name="totalFrom"]'),
+        totalTo: document.querySelector('[data-name="totalTo"]'),
+      };
+    },
 
-    return { updateIndexes, applyFiltering };
+    updateIndexes(indexes) {
+      if (filterElements.seller && indexes?.sellers) {
+        filterElements.seller.innerHTML = '<option value="">Все</option>';
+        for (const sellerName of Object.values(indexes.sellers)) {
+          const option = document.createElement('option');
+          option.value = sellerName;
+          option.textContent = sellerName;
+          filterElements.seller.appendChild(option);
+        }
+      }
+    },
+
+    applyFiltering(query, state) {
+      const filterParams = {};
+      if (filterElements.seller?.value) filterParams['filter[seller]'] = filterElements.seller.value;
+      if (filterElements.customer?.value) filterParams['filter[customer]'] = filterElements.customer.value;
+      if (filterElements.date?.value) filterParams['filter[date]'] = filterElements.date.value;
+      if (filterElements.totalFrom?.value) filterParams['filter[total_from]'] = filterElements.totalFrom.value;
+      if (filterElements.totalTo?.value) filterParams['filter[total_to]'] = filterElements.totalTo.value;
+
+      return Object.keys(filterParams).length ? { ...query, ...filterParams } : query;
+    },
+  };
 }

@@ -1,59 +1,43 @@
-import { cloneTemplate } from "../lib/utils.js";
+export function initTable() {
+  let rowsContainer = null;
+  let rowTemplate = null;
 
-/**
- * Инициализирует таблицу и вызывает коллбэк при любых изменениях и нажатиях на кнопки
- *
- * @param {Object} settings
- * @param {(action: HTMLButtonElement | undefined) => void} onAction
- * @returns {{container: Node, elements: *, render: render}}
- */
-export function initTable(settings, onAction) {
-    const { tableTemplate, rowTemplate, before, after } = settings;
-    const root = cloneTemplate(tableTemplate);
+  return {
+    init() {
+      const tableTemplate = document.querySelector('#table');
+      rowTemplate = document.querySelector('#row');
 
-    // 🔥 @todo: #1.2 — вывести дополнительные шаблоны до и после таблицы
-    if (before) {
-        before.reverse().forEach(subName => {
-            root[subName] = cloneTemplate(subName);
-            root.container.prepend(root[subName].container);
-        });
+      if (!tableTemplate || !rowTemplate) {
+        console.error('❌ Ошибка: в index.html не найдены шаблоны #table или #row');
+        return;
+      }
+
+      // Безопасное клонирование нативным методом
+      const tableNode = tableTemplate.content.cloneNode(true);
+      rowsContainer = tableNode.querySelector('[data-name="rows"]');
+
+      const app = document.getElementById('app');
+      if (app) app.appendChild(tableNode);
+    },
+
+    render(data) {
+      if (!Array.isArray(data) || !rowsContainer || !rowTemplate) return;
+
+      rowsContainer.innerHTML = '';
+      const fragment = document.createDocumentFragment();
+
+      for (const item of data) {
+        const rowNode = rowTemplate.content.cloneNode(true);
+        const rowElement = rowNode.querySelector('[data-name="container"]') || rowNode.firstElementChild;
+
+        for (const [key, value] of Object.entries(item)) {
+          const cell = rowElement.querySelector(`[data-name="${key}"]`);
+          if (cell) cell.textContent = value ?? '';
+        }
+        fragment.appendChild(rowElement);
+      }
+
+      rowsContainer.appendChild(fragment);
     }
-
-    if (after) {
-        after.forEach(subName => {
-            root[subName] = cloneTemplate(subName);
-            root.container.append(root[subName].container);
-        });
-    }
-
-    // 🔥 @todo: #1.3 — обработать события и вызвать onAction()
-    root.container.addEventListener('change', () => onAction());
-    root.container.addEventListener('reset', () => setTimeout(onAction));
-    root.container.addEventListener('submit', (e) => {
-        e.preventDefault();
-        onAction(e.submitter);
-    });
-
-    // 🔥 Функция рендера таблицы
-    const render = (data) => {
-        // 🔥 @todo: #1.1 — преобразовать данные в массив строк на основе шаблона rowTemplate
-        const nextRows = data.map(item => {
-            const row = cloneTemplate(rowTemplate);
-            
-            // Заполняем ячейки данными из item
-            Object.keys(item).forEach(key => {
-                const cell = row.elements[key];
-                if (cell) {
-                    cell.textContent = item[key];
-                }
-            });
-            
-            return row.container;
-        });
-        
-        // 🔥 Заменяем содержимое tbody на новые строки
-        root.elements.rows.replaceChildren(...nextRows);
-    };
-
-    return { ...root, render };
+  };
 }

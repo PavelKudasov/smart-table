@@ -1,25 +1,16 @@
 import { sortMap } from '../lib/sort.js';
 
-export function initSorting(columns) {
-    return (query, state, action) => {
-        let field = null;
-        let order = 'none';
+export function initSorting() {
+  return (query, state) => {
+    let sortField = null;
+    let sortOrder = 'none';
 
-        // Используем columns[col] для маппинга на имя поля в API
-        Object.keys(columns).forEach(col => {
-            if (state.sortField === col) {
-                field = columns[col];
-                order = state.sortOrder;
-            }
-        });
-        
-        // Формируем параметр sort: "date:desc" или null
-        const sort = (field && order !== 'none') 
-            ? `${field}:${order}` 
-            : null;
-            
-        return sort 
-            ? Object.assign({}, query, { sort }) 
-            : query;
-    };
+    if (state.sortField && sortMap[state.sortField]) {
+      sortField = sortMap[state.sortField];
+      sortOrder = state.sortOrder || 'asc';
+    }
+
+    const sortParam = sortField && sortOrder !== 'none' ? `${sortField}:${sortOrder}` : null;
+    return sortParam ? { ...query, sort: sortParam } : query;
+  };
 }
