@@ -1,43 +1,53 @@
-export function initTable() {
-  let rowsContainer = null;
-  let rowTemplate = null;
+import { cloneTemplate } from "../lib/utils.js";
 
-  return {
-    init() {
-      const tableTemplate = document.querySelector('#table');
-      rowTemplate = document.querySelector('#row');
+export function initTable(settings, onAction) {
+    const { tableTemplate, rowTemplate, before, after } = settings;
+    const root = cloneTemplate(tableTemplate);
 
-      if (!tableTemplate || !rowTemplate) {
-        console.error('❌ Ошибка: в index.html не найдены шаблоны #table или #row');
-        return;
-      }
-
-      // Безопасное клонирование нативным методом
-      const tableNode = tableTemplate.content.cloneNode(true);
-      rowsContainer = tableNode.querySelector('[data-name="rows"]');
-
-      const app = document.getElementById('app');
-      if (app) app.appendChild(tableNode);
-    },
-
-    render(data) {
-      if (!Array.isArray(data) || !rowsContainer || !rowTemplate) return;
-
-      rowsContainer.innerHTML = '';
-      const fragment = document.createDocumentFragment();
-
-      for (const item of data) {
-        const rowNode = rowTemplate.content.cloneNode(true);
-        const rowElement = rowNode.querySelector('[data-name="container"]') || rowNode.firstElementChild;
-
-        for (const [key, value] of Object.entries(item)) {
-          const cell = rowElement.querySelector(`[data-name="${key}"]`);
-          if (cell) cell.textContent = value ?? '';
-        }
-        fragment.appendChild(rowElement);
-      }
-
-      rowsContainer.appendChild(fragment);
+    // 🔥 Обработка дополнительных шаблонов до таблицы (header, filter)
+    if (before) {
+        before.reverse().forEach(subName => {
+            root[subName] = cloneTemplate(subName);
+            root.container.prepend(root[subName].container);
+        });
     }
-  };
+
+    // 🔥 Обработка дополнительных шаблонов после таблицы
+    if (after) {
+        after.forEach(subName => {
+            root[subName] = cloneTemplate(subName);
+            root.container.append(root[subName].container);
+        });
+    }
+
+    // 🔥 Обработчики событий формы (если есть)
+    root.container.addEventListener('change', () => onAction());
+    root.container.addEventListener('reset', () => setTimeout(onAction));
+    root.container.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const submitter = e.submitter || document.activeElement;
+        onAction(submitter);
+    });
+
+    // 🔥 Функция рендера строк
+    const render = (data) => {
+        const nextRows = data.map(item => {
+            const row = cloneTemplate(rowTemplate);
+            
+            // Заполняем ячейки данными
+            Object.keys(item).forEach(key => {
+                const cell = row.elements[key];
+                if (cell) {
+                    cell.textContent = item[key];
+                }
+            });
+            
+            return row.container;
+        });
+        
+        // Заменяем содержимое tbody
+        root.elements.rows.replaceChildren(...nextRows);
+    };
+
+    return { ...root, render };
 }

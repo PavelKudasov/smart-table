@@ -1,77 +1,64 @@
 const BASE_URL = 'https://webinars.webdev.education-services.ru/sp7-api';
 
-let sellersCache = {};
-let customersCache = {};
-let cachedResult = null;
-let cachedQuery = null;
+let sellers;
+let customers;
+let lastResult;
+let lastQuery;
 
-const mapRecords = (records) => records.map((item) => ({
-  id: item.receipt_id,
-  date: item.date,
-  seller: sellersCache[item.seller_id] || 'Неизвестный',
-  customer: customersCache[item.customer_id] || 'Неизвестный',
-  total: item.total_amount,
-}));
+const mapRecords = (data) => {
+    // 🔥 Защита: если data не массив, возвращаем пустой массив
+    if (!Array.isArray(data)) return [];
+    
+    return data.map(item => ({
+        id: item.receipt_id,
+        date: item.date,
+        seller: sellers[item.seller_id],
+        customer: customers[item.customer_id],
+        total: item.total_amount
+    }));
+};
 
-export function initData() {
-  const getIndexes = async () => {
-    if (!Object.keys(sellersCache).length || !Object.keys(customersCache).length) {
-      const [sellersResponse, customersResponse] = await Promise.all([
-        fetch(`${BASE_URL}/sellers`),
-        fetch(`${BASE_URL}/customers`),
-      ]);
+export function initData(sourceData) {
+    const getIndexes = async () => {
+        if (!sellers || !customers) {
+            [sellers, customers] = await Promise.all([
+                fetch(`${BASE_URL}/sellers`).then(res => res.json()),
+                fetch(`${BASE_URL}/customers`).then(res => res.json()),
+            ]);
+        }
 
-      if (!sellersResponse.ok || !customersResponse.ok) {
-        throw new Error('Failed to load indexes from server');
-      }
-
-      let sellersList = await sellersResponse.json();
-      let customersList = await customersResponse.json();
-
-      // 🔥 Защита: если сервер вернул объект, превращаем его в массив значений
-      if (!Array.isArray(sellersList)) {
-        sellersList = typeof sellersList === 'object' ? Object.values(sellersList) : [];
-      }
-      if (!Array.isArray(customersList)) {
-        customersList = typeof customersList === 'object' ? Object.values(customersList) : [];
-      }
-
-      sellersCache = sellersList.reduce((acc, item) => {
-        acc[item.id] = item.name || item;
-        return acc;
-      }, {});
-
-      customersCache = customersList.reduce((acc, item) => {
-        acc[item.id] = item.name || item;
-        return acc;
-      }, {});
-    }
-
-    return { sellers: sellersCache, customers: customersCache };
-  };
-
-  const getRecords = async (query = {}, forceUpdate = false) => {
-    const queryString = new URLSearchParams(query).toString();
-
-    if (cachedQuery === queryString && !forceUpdate && cachedResult) {
-      return cachedResult;
-    }
-
-    const response = await fetch(`${BASE_URL}/records?${queryString}`);
-    if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
-    }
-
-    const serverData = await response.json();
-
-    cachedQuery = queryString;
-    cachedResult = {
-      total: serverData.total,
-      items: mapRecords(serverData.items),
+        return { sellers, customers };
     };
 
-    return cachedResult;
-  };
+    const getRecords = async (query, isUpdated = false) => {
+        const qs = new URLSearchParams(query);
+        const nextQuery = qs.toString();
 
-  return { getIndexes, getRecords };
+        if (lastQuery === nextQuery && !isUpdated) {
+            return lastResult;
+        }
+
+        const response = await fetch(`${BASE_URL}/records?${nextQuery}`);
+        
+        // 🔥 Если сервер вернул ошибку, возвращаем пустой результат, а не падаем
+        if (!response.ok) {
+            console.warn('Server error:', response.status);
+            return { total: 0, items: [] };
+        }
+        
+        const records = await response.json();
+
+        lastQuery = nextQuery;
+        lastResult = {
+            total: records.total,
+            items: mapRecords(records.items) // 🔥 mapRecords теперь безопасен
+        };
+
+        return lastResult;
+    };
+
+    return {
+        getIndexes,
+        getRecords
+    };
 }
