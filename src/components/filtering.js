@@ -1,32 +1,35 @@
 export function initFiltering(elements) {
-    const updateIndexes = (filterElements, indexes) => {
-        Object.keys(indexes).forEach((elementName) => {
-            if (filterElements[elementName]) {
-                filterElements[elementName].append(...Object.values(indexes[elementName]).map(name => {
-                    const el = document.createElement('option');
-                    el.textContent = name;
-                    el.value = name;
-                    return el;
-                }));
-            }
-        });
-    };
+  const updateIndexes = (filterElements, indexes) => {
+    Object.keys(indexes).forEach((elementName) => {
+      filterElements[elementName].append(...Object.values(indexes[elementName]).map((name) => {
+        const option = document.createElement('option');
 
-    const applyFiltering = (query, state, action) => {
-        const filter = {};
-        Object.keys(elements).forEach(key => {
-            if (elements[key]) {
-                if (['INPUT', 'SELECT'].includes(elements[key].tagName) && elements[key].value) {
-                    filter[`filter[${elements[key].name}]`] = elements[key].value;
-                }
-            }
-        });
+        option.textContent = name;
+        option.value = name;
 
-        return Object.keys(filter).length ? Object.assign({}, query, filter) : query;
-    };
+        return option;
+      }));
+    });
+  };
 
-    return {
-        updateIndexes,
-        applyFiltering
-    };
+  const applyFiltering = (query) => {
+    const filter = {};
+
+    Object.keys(elements).forEach((key) => {
+      const element = elements[key];
+
+      if (['INPUT', 'SELECT'].includes(element.tagName) && element.value) {
+        filter[`filter[${element.name}]`] = element.value;
+      }
+    });
+
+    return Object.keys(filter).length
+      ? Object.assign({}, query, filter)
+      : query;
+  };
+
+  return {
+    updateIndexes,
+    applyFiltering
+  };
 }
