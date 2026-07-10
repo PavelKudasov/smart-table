@@ -1,56 +1,72 @@
 import { cloneTemplate } from '../lib/utils.js';
 
 export function initTable(settings, onAction) {
-  const { tableTemplate, rowTemplate, before, after } = settings;
-  const root = cloneTemplate(tableTemplate);
+    const {
+        tableTemplate,
+        rowTemplate,
+        before,
+        after
+    } = settings;
 
-  if (before) {
-    [...before].reverse().forEach((templateName) => {
-      root[templateName] = cloneTemplate(templateName);
-      root.container.prepend(root[templateName].container);
-    });
-  }
+    const root = cloneTemplate(tableTemplate);
 
-  if (after) {
-    after.forEach((templateName) => {
-      root[templateName] = cloneTemplate(templateName);
-      root.container.append(root[templateName].container);
-    });
-  }
+    if (before) {
+        [...before].reverse().forEach((templateName) => {
+            root[templateName] = cloneTemplate(templateName);
 
-  root.container.addEventListener('change', (event) => {
-    onAction(event.target);
-  });
+            root.container.prepend(
+                root[templateName].container
+            );
+        });
+    }
 
-  root.container.addEventListener('reset', () => {
-    setTimeout(() => onAction());
-  });
+    if (after) {
+        after.forEach((templateName) => {
+            root[templateName] = cloneTemplate(templateName);
 
-  root.container.addEventListener('submit', (event) => {
-    event.preventDefault();
-    onAction(event.submitter);
-  });
+            root.container.append(
+                root[templateName].container
+            );
+        });
+    }
 
-  const render = (data) => {
-    const rows = data.map((item) => {
-      const row = cloneTemplate(rowTemplate);
-
-      Object.keys(item).forEach((key) => {
-        const cell = row.elements[key];
-
-        if (cell) {
-          cell.textContent = item[key];
-        }
-      });
-
-      return row.container;
+    root.container.addEventListener('change', (event) => {
+        onAction(event.target);
     });
 
-    root.elements.rows.replaceChildren(...rows);
-  };
+    root.container.addEventListener('reset', () => {
+        setTimeout(() => {
+            onAction({
+                name: 'reset'
+            });
+        });
+    });
 
-  return {
-    ...root,
-    render
-  };
+    root.container.addEventListener('submit', (event) => {
+        event.preventDefault();
+        onAction(event.submitter);
+    });
+
+    const render = (data) => {
+        const rows = data.map((item) => {
+            const row = cloneTemplate(rowTemplate);
+
+            Object.keys(item).forEach((key) => {
+                const cell = row.elements[key];
+
+                if (cell) {
+                    cell.textContent = item[key];
+                }
+            });
+
+            return row.container;
+        });
+
+        root.elements.rows.replaceChildren(...rows);
+    };
+
+    return {
+        ...root,
+        render
+    };
 }
